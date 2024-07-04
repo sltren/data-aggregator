@@ -1,0 +1,134 @@
+service: aggregated-data-service
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ${env:AWS_REGION_NAME, 'us-east-1'}
+  stage: dev
+  environment:
+    COMPANIES_TABLE: ${env:COMPANIES_TABLE, 'Company'}
+    USERS_TABLE: ${env:USERS_TABLE, 'User'}
+    VULNERABILITIES_TABLE: ${env:VULNERABILITIES_TABLE, 'Vulnerability'}
+    BUCKET_NAME: ${env:BUCKET_NAME, 'aggregated-historical-data'}
+    IS_OFFLINE: ${env:IS_OFFLINE, 'false'}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - "dynamodb:*"
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - s3:*
+      Resource:
+        - arn:aws:s3:::${self:provider.environment.BUCKET_NAME}
+        - arn:aws:s3:::${self:provider.environment.BUCKET_NAME}/*
+
+resources:
+  Resources:
+    AggregatedDataBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.BUCKET_NAME}
+    CompanyTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.COMPANIES_TABLE}
+        AttributeDefinitions:
+          - AttributeName: companyId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: companyId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    UserTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.USERS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: companyId
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: companyId
+            KeyType: HASH
+          - AttributeName: userId
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    VulnerabilityTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.VULNERABILITIES_TABLE}
+        AttributeDefinitions:
+          - AttributeName: companyId
+            AttributeType: S
+          - AttributeName: vulnerabilityId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: companyId
+            KeyType: HASH
+          - AttributeName: vulnerabilityId
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+functions:
+  hello:
+    handler: src/functions/hello-world/handler.hello
+    events:
+      - http:
+          path: hello
+          method: get
+
+  seedCompanyData:
+    handler: src/functions/seed-company-data/handler.seedCompanyData
+    events:
+      - http:
+          path: seed/company
+          method: post
+
+  seedUserData:
+    handler: src/functions/seed-user-data/handler.seedUserData
+    events:
+      - http:
+          path: seed/user
+          method: post
+
+  seedVulnerabilityData:
+    handler: src/functions/seed-vulnerability-data/handler.seedVulnerabilityData
+    events:
+      - http:
+          path: seed/vulnerability
+          method: post
+
+  getAggregatedData:
+    handler: src/functions/get-aggregated-data/handler.getAggregatedData
+    events:
+      - http:
+          path: companies/{companyId}/data
+          method: get
+          request:
+            parameters:
+              paths:
+                companyId: true
+              querystrings:
+                startDate: true
+                endDate: true
+
+  aggregateData:
+    handler: src/functions/aggregate-data/handler.aggregateData
+    events:
+      - schedule:
+          rate: rate(1 day)
+          # rate: cron(0 * * * ? *) # Every hour at the top of the hour 
+          # rate: cron(0 0 * * ? *) # Runs daily at midnight 
+
+package:
+  individually: true
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-dotenv-plugin
+  - serverless-offline
+  - serverless-dynamodb-local
