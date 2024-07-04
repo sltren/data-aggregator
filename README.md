@@ -194,10 +194,9 @@ runtime: nodejs20.x
 environment:  
 ... env variables
 
-plugins:
-
-- serverless-plugins  
-  ...
+plugins:  
+serverless-plugins  
+...
 
 custom:  
 ...
