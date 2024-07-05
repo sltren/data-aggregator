@@ -1,16 +1,16 @@
-import { Company } from "../../models/company-model";
+import { Company, CompanyItem } from "../../models/company-model";
 import { User } from "../../models/user-model";
-import { Vulnerability } from "../../models/vulnerability-model";
-import { SeverityEnum } from "../../validations/vulnerability-schema";
 import { uploadToS3 } from "../../utils/s3-util";
 import {
-  CompanyItem,
   CompanyVulnerability,
   PackageVulnerability,
-  QueryResult,
   TotalVulnerabilitiesBySeverity,
-  VulnerabilityItem,
 } from "../../models/aggregated-data-model";
+import {
+  Vulnerability,
+  VulnerabilityItem,
+} from "../../models/vulnerability-model";
+import { SeverityEnum } from "../../validations/vulnerability-schema";
 
 export const aggregateData = async (event: any) => {
   try {

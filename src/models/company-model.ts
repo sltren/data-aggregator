@@ -2,6 +2,11 @@ import { Entity, Table } from "dynamodb-toolbox";
 import { config } from "../validations/envValidation";
 import { DocumentClient } from "./dynamo-db-client";
 
+export interface CompanyItem {
+  companyId: string;
+  companyName: string;
+}
+
 const table = new Table({
   name: config.companiesTable,
   partitionKey: "companyId",
