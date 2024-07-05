@@ -3,10 +3,19 @@ import { User } from "../../models/user-model";
 import { Vulnerability } from "../../models/vulnerability-model";
 import { SeverityEnum } from "../../validations/vulnerability-schema";
 import { uploadToS3 } from "../../utils/s3-util";
+import {
+  CompanyItem,
+  CompanyVulnerability,
+  PackageVulnerability,
+  QueryResult,
+  TotalVulnerabilitiesBySeverity,
+  VulnerabilityItem,
+} from "../../models/aggregated-data-model";
 
 export const aggregateData = async (event: any) => {
   try {
-    const companies = await Company.scan();
+    const companies =
+      (await Company.scan()) as unknown as QueryResult<CompanyItem>;
 
     if (!companies.Items || companies.Items.length === 0) {
       console.log("No companies found");
@@ -21,11 +30,17 @@ export const aggregateData = async (event: any) => {
         await User.query(companyId, {
           select: "COUNT",
         })
-      ).Count;
+      ).Count as number;
 
-      const vulnerabilities = await Vulnerability.query(companyId);
+      const vulnerabilities = (await Vulnerability.query(
+        companyId
+      )) as unknown as QueryResult<VulnerabilityItem>;
 
-      const data = formatData(companyName, usersCount, vulnerabilities.Items);
+      const data = formatData(
+        companyName,
+        usersCount,
+        vulnerabilities
+      ) as CompanyVulnerability;
 
       await saveData(companyId, data);
     }
@@ -37,11 +52,11 @@ export const aggregateData = async (event: any) => {
 };
 
 const formatData = (
-  companyName: any | undefined,
-  usersCount: any | undefined,
-  vulnerabilities: any | undefined
+  companyName: string,
+  usersCount: number,
+  vulnerabilities: QueryResult<VulnerabilityItem>
 ) => {
-  const aggregatedData = {
+  const aggregatedData: CompanyVulnerability = {
     createdAt: new Date().toISOString(),
     companyName: companyName,
     numberOfUsers: usersCount,
@@ -53,11 +68,12 @@ const formatData = (
       medium: 0,
       low: 0,
     },
-  } as any;
+  };
 
-  const packageVulnerabilities = {} as any;
+  // object type with string keys and values of type PackageVulnerability
+  const packageVulnerabilities: Record<string, PackageVulnerability> = {};
 
-  vulnerabilities?.forEach(
+  vulnerabilities?.Items?.forEach(
     (item: { severity: string; packageName: string }) => {
       if (
         item.severity === SeverityEnum.CRITICAL ||
@@ -75,19 +91,26 @@ const formatData = (
           low: 0,
         };
       }
-      packageVulnerabilities[item.packageName][item.severity] += 1;
-      aggregatedData.totalVulnerabilitiesBySeverity[item.severity] += 1;
+      packageVulnerabilities[item.packageName][
+        item.severity as keyof TotalVulnerabilitiesBySeverity
+      ] += 1;
+      aggregatedData.totalVulnerabilitiesBySeverity[
+        item.severity as keyof TotalVulnerabilitiesBySeverity
+      ] += 1;
     }
   );
 
   aggregatedData.top3Packages = Object.values(packageVulnerabilities)
-    .sort((a: any, b: any) => b.critical + b.high - (a.critical + a.high))
+    .sort(
+      (a: PackageVulnerability, b: PackageVulnerability) =>
+        b.critical + b.high - (a.critical + a.high)
+    )
     .slice(0, 3);
 
   return aggregatedData;
 };
 
-const saveData = async (companyId: string, data: any) => {
+const saveData = async (companyId: string, data: CompanyVulnerability) => {
   const dateStr = new Date().toISOString().split("T")[0];
   const fileName = `${companyId}/history/${dateStr}.json`;
   await uploadToS3(fileName, data);

@@ -1,6 +1,7 @@
 import { APIGatewayProxyHandler } from "aws-lambda";
 import { validateDate } from "../../validations/date-validation";
 import { getFromS3 } from "../../utils/s3-util";
+import { CompanyVulnerability } from "../../models/aggregated-data-model";
 
 export const getAggregatedData: APIGatewayProxyHandler = async (event: any) => {
   const companyId = event.pathParameters.companyId;
@@ -19,7 +20,11 @@ export const getAggregatedData: APIGatewayProxyHandler = async (event: any) => {
   }
 
   try {
-    const data = await fetchAggregatedData(companyId, startDate, endDate);
+    const data = (await fetchAggregatedData(
+      companyId,
+      startDate,
+      endDate
+    )) as CompanyVulnerability[];
     return {
       statusCode: 200,
       body: JSON.stringify(data),
@@ -43,22 +48,23 @@ async function fetchAggregatedData(
   companyId: string,
   startDate: string,
   endDate: string
-) {
+): Promise<CompanyVulnerability[]> {
   const start = new Date(startDate);
   const end = new Date(endDate);
-  const data = [];
+  const data: CompanyVulnerability[] = [];
 
   for (let d = start; d <= end; d.setDate(d.getDate() + 1)) {
     const dateStr = d.toISOString().split("T")[0];
     const fileName = `${companyId}/history/${dateStr}.json`;
 
-    const fileData = await getFromS3(fileName);
+    const fileData = (await getFromS3(fileName)) as CompanyVulnerability;
+
     if (fileData && Object.keys(fileData).length > 0) {
       data.push(fileData);
-      console.log(`file data added to array: ${fileData}`);
+      console.log(`File data added to result: ${fileData}`);
     } else {
       console.log(
-        `file data is empty and was not added to the array. Key: ${fileName}`
+        `File data is empty and was not added to the result for the key: ${fileName}`
       );
     }
   }
