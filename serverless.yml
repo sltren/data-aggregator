@@ -123,6 +123,7 @@ functions:
           rate: rate(1 day)
           # rate: cron(0 * * * ? *) # Every hour at the top of the hour 
           # rate: cron(0 0 * * ? *) # Runs daily at midnight 
+          # cron(0/5 * * * ? *) # Every 5 min 
 
 package:
   individually: true

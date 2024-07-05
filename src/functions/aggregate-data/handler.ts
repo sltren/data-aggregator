@@ -17,10 +17,16 @@ export const aggregateData = async (event: any) => {
       const companyId = company.companyId;
       const companyName = company.companyName;
 
-      const users = await User.query(companyId);
+      const usersCount = (
+        await User.query(companyId, {
+          select: "COUNT",
+        })
+      ).Count;
+
       const vulnerabilities = await Vulnerability.query(companyId);
 
-      const data = formatData(companyName, users.Items, vulnerabilities.Items);
+      const data = formatData(companyName, usersCount, vulnerabilities.Items);
+
       await saveData(companyId, data);
     }
 
@@ -32,13 +38,13 @@ export const aggregateData = async (event: any) => {
 
 const formatData = (
   companyName: any | undefined,
-  users: any | undefined,
+  usersCount: any | undefined,
   vulnerabilities: any | undefined
 ) => {
   const aggregatedData = {
     createdAt: new Date().toISOString(),
     companyName: companyName,
-    numberOfUsers: users?.length,
+    numberOfUsers: usersCount,
     numberOfVulnerablePackages: 0,
     top3Packages: [],
     totalVulnerabilitiesBySeverity: {
