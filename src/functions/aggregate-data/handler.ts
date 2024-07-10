@@ -11,8 +11,9 @@ import {
   VulnerabilityItem,
 } from "../../models/vulnerability-model";
 import { SeverityEnum } from "../../validations/vulnerability-schema";
+import { ScheduledEvent } from "aws-lambda";
 
-export const aggregateData = async (event: any) => {
+export const aggregateData = async (event: ScheduledEvent): Promise<void> => {
   try {
     const companies =
       (await Company.scan()) as unknown as QueryResult<CompanyItem>;
@@ -55,7 +56,7 @@ const formatData = (
   companyName: string,
   usersCount: number,
   vulnerabilities: QueryResult<VulnerabilityItem>
-) => {
+): CompanyVulnerability => {
   const aggregatedData: CompanyVulnerability = {
     createdAt: new Date().toISOString(),
     companyName: companyName,
@@ -110,7 +111,10 @@ const formatData = (
   return aggregatedData;
 };
 
-const saveData = async (companyId: string, data: CompanyVulnerability) => {
+const saveData = async (
+  companyId: string,
+  data: CompanyVulnerability
+): Promise<void> => {
   const dateStr = new Date().toISOString().split("T")[0];
   const fileName = `${companyId}/history/${dateStr}.json`;
   await uploadToS3(fileName, data);
