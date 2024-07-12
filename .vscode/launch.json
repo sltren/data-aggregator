@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Serverless Offline",
+      "args": ["offline", "start", "--httpPort", "4000", "--noTimeout"],
+      "runtimeExecutable": "node",
+      "env": {
+        "DYNAMODB_ENDPOINT": "http://localhost:8000"
+      }, // in case env variables needed
+      "windows": {
+        "program": "${workspaceFolder}/node_modules/serverless/bin/serverless"
+      }
+    }
+  ]
+}
